@@ -1,0 +1,123 @@
+%% Script to plot angular response for different wavelengths
+clear all; clc; close all;
+
+%% ======== EDITABLE VARIABLES ======== %%
+folder_path = 'Data'; % Folder containing angle-based CSV files
+start_angle = 24;
+stop_angle = 30.2; 
+step_size = 0.1;
+
+% Wavelengths to extract (nm)
+wavelengths_to_plot = [1520 1525 1530 1535 1540 1545 1550 1555 1560 1565 1570];
+lambda = linspace(1520,1570,51);
+
+% Column indices in CSV files
+wavelength_col = 1; % Column containing wavelength values
+current_col = 2;    % Column containing current values
+
+%% ======== PROCESSING ======== %%
+% Generate angle values
+angles = start_angle:step_size:stop_angle;
+num_angles = length(angles);
+
+% Initialize data storage
+currents = zeros(length(wavelengths_to_plot), num_angles);
+
+% Process each angle file
+for i = 1:num_angles
+    % Construct filename based on angle
+    angle_val = angles(i);
+    filename = fullfile(folder_path, sprintf('%.1f.csv', angle_val));
+    
+    % Check if file exists
+    if exist(filename, 'file')
+        % Read data
+        data = readmatrix(filename);
+        
+        % Extract data for each wavelength of interest
+        for w = 1:length(wavelengths_to_plot)
+            target_wavelength = wavelengths_to_plot(w);
+            
+            % Find row with matching wavelength
+            row_idx = find(data(:, wavelength_col) == target_wavelength);
+            
+            % Store current value if wavelength found
+            if ~isempty(row_idx)
+                currents(w, i) = data(row_idx, current_col);
+            else
+                fprintf('Warning: Wavelength %d nm not found in file %s\n', target_wavelength, filename);
+                currents(w, i) = NaN; % Mark as missing data
+            end
+        end
+    else
+        fprintf('Warning: File not found: %s\n', filename);
+        currents(:, i) = NaN; % Mark as missing data
+    end
+end
+
+%% ======== PLOTTING ======== %%
+% Linear scale plot
+figure(1);
+hold on;
+for w = 1:length(wavelengths_to_plot)
+    plot(angles, currents(w, :)*1e6, 'LineWidth', 3);
+end
+xlabel('Angle (degrees)');
+ylabel('Current (\mu A)');
+title('Angular Response at Different Wavelengths');
+legend(arrayfun(@(x) sprintf('%d nm', x), wavelengths_to_plot, 'UniformOutput', false), 'Location', 'best');
+grid on;
+xlim([start_angle stop_angle]);
+set(gca, 'FontName', 'Times', 'FontSize', 16, 'LineWidth', 1);
+
+% Normalized dB scale plot
+figure(2);
+hold on;
+max_current = max(currents(:)); % Global maximum for normalization
+for w = 1:length(wavelengths_to_plot)
+    normalized = currents(w, :) / max_current;
+    y_dB = 10 * log10(normalized);
+    plot(angles, y_dB, 'LineWidth', 3);
+end
+xlabel('Angle (degrees)');
+ylabel('Normalized Current (dB)');
+title('Angular Response at Different Wavelengths (Normalized)');
+legend(arrayfun(@(x) sprintf('%d nm', x), wavelengths_to_plot, 'UniformOutput', false), 'Location', 'best');
+grid on;
+xlim([start_angle stop_angle]);
+set(gca, 'FontName', 'Times', 'FontSize', 16, 'LineWidth', 1);
+
+% Normalized dB scale plot
+figure(3);
+hold on;
+responsivity = readmatrix("InGaAs_biased_responsivity_8.xlsx");
+for w = 1:length(wavelengths_to_plot)
+    plot(angles, (currents(w, :)*1e6/responsivity(64+(w-1),6)), 'LineWidth', 3);
+end
+xlabel('Angle (degrees)');
+ylabel('Received Optical Power (\mu W)');
+title('Angular Response at Different Wavelengths');
+legend(arrayfun(@(x) sprintf('%d nm', x), wavelengths_to_plot, 'UniformOutput', false), 'Location', 'best');
+grid on;
+xlim([start_angle stop_angle]);
+set(gca, 'FontName', 'Times', 'FontSize', 16, 'LineWidth', 1);
+
+% Normalized dB scale plot
+figure(4);
+hold on;
+max_current = max(currents(:)); % Global maximum for normalization
+for w = 1:length(wavelengths_to_plot)
+    %normalized = currents(w, :) / max_current;
+    y_dB = 10 * log10(currents(w,:)/responsivity(64+(w-1),6))+30;
+    plot(angles, y_dB, 'LineWidth', 3);
+end
+xlabel('Angle (degrees)');
+ylabel('Received Optical Power (dBm)');
+title('Angular Response at Different Wavelengths');
+legend(arrayfun(@(x) sprintf('%d nm', x), wavelengths_to_plot, 'UniformOutput', false), 'Location', 'best');
+grid on;
+xlim([start_angle stop_angle]);
+set(gca, 'FontName', 'Times', 'FontSize', 16, 'LineWidth', 1);
+
+
+fprintf('Done plotting.\n');
